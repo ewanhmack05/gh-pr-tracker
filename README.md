@@ -2,6 +2,7 @@
 A pr tracker for github 
 
 Pull Requests:
+
 <img width="374" height="290" alt="image" src="https://github.com/user-attachments/assets/163593b0-1076-4a02-bf85-052fa9b646e7" />
 
 Gives a list of pull requests your reviews have been requested on
