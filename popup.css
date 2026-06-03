@@ -298,7 +298,6 @@ header {
 }
 
 .mute-btn {
-  margin-left: auto;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
@@ -319,6 +318,74 @@ header {
   font-size: 10px;
   color: var(--orange);
   opacity: 0.8;
+}
+
+/* PR sub-tabs */
+#pr-sub-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.pr-sub-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.pr-sub-tab:hover { color: var(--text); }
+
+.pr-sub-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* PR action buttons (mute + dismiss) */
+.pr-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.dismiss-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.pr-item:hover .dismiss-btn {
+  opacity: 1;
+}
+
+.dismiss-btn:hover {
+  color: var(--red) !important;
+  border-color: var(--red) !important;
+}
+
+.restore-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.pr-item:hover .restore-btn {
+  opacity: 1;
+}
+
+.restore-btn:hover {
+  color: var(--green) !important;
+  border-color: var(--green) !important;
 }
 
 /* Empty state */

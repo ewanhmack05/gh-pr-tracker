@@ -45,17 +45,23 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function renderPRs(prs, seenComments, mutedPRs = {}) {
+function renderPRs(prs, seenComments, mutedPRs = {}, dismissedPRs = {}) {
   prList.innerHTML = "";
 
-  if (!prs || prs.length === 0) {
+  const visiblePRs = (prs || []).filter((pr) => {
+    const repoFullName = pr.repository_url.replace("https://api.github.com/repos/", "");
+    const prKey = `${repoFullName}#${pr.number}`;
+    return !dismissedPRs[prKey];
+  });
+
+  if (visiblePRs.length === 0) {
     emptyState.classList.remove("hidden");
     return;
   }
 
   emptyState.classList.add("hidden");
 
-  for (const pr of prs) {
+  for (const pr of visiblePRs) {
     const repoFullName = pr.repository_url.replace("https://api.github.com/repos/", "");
     const commentCount = pr.comments + (pr.pull_request?.review_comments || 0);
     const prKey = `${repoFullName}#${pr.number}`;
@@ -67,13 +73,21 @@ function renderPRs(prs, seenComments, mutedPRs = {}) {
       <div class="pr-header">
         <span class="pr-number">#${pr.number}</span>
         <span class="pr-title">${escapeHtml(pr.title)}</span>
-        <button class="mute-btn icon-btn${isMuted ? " muted" : ""}" data-prkey="${escapeHtml(prKey)}" title="${isMuted ? "Unmute PR" : "Mute PR"}">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M6 1a3 3 0 0 1 3 3v2.5l.75 1H2.25L3 6.5V4a3 3 0 0 1 3-3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-            <path d="M4.5 9.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-            ${isMuted ? `<line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` : ""}
-          </svg>
-        </button>
+        <div class="pr-actions">
+          <button class="mute-btn icon-btn${isMuted ? " muted" : ""}" data-prkey="${escapeHtml(prKey)}" title="${isMuted ? "Unmute PR" : "Mute PR"}">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1a3 3 0 0 1 3 3v2.5l.75 1H2.25L3 6.5V4a3 3 0 0 1 3-3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+              <path d="M4.5 9.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              ${isMuted ? `<line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` : ""}
+            </svg>
+          </button>
+          <button class="dismiss-btn icon-btn" data-prkey="${escapeHtml(prKey)}" title="Dismiss PR">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="pr-meta">
         <span class="pr-repo">${escapeHtml(repoFullName)}</span>
@@ -89,8 +103,22 @@ function renderPRs(prs, seenComments, mutedPRs = {}) {
       const key = e.currentTarget.dataset.prkey;
       chrome.runtime.sendMessage({ type: "TOGGLE_MUTE", prKey: key }, () => {
         chrome.storage.local.get(
-          ["prs", "seenComments", "mutedPRs"],
-          (data) => renderPRs(data.prs, data.seenComments, data.mutedPRs)
+          ["prs", "seenComments", "mutedPRs", "dismissedPRs"],
+          (data) => renderPRs(data.prs, data.seenComments, data.mutedPRs, data.dismissedPRs)
+        );
+      });
+    });
+
+    item.querySelector(".dismiss-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const key = e.currentTarget.dataset.prkey;
+      chrome.runtime.sendMessage({ type: "DISMISS_PR", prKey: key }, () => {
+        chrome.storage.local.get(
+          ["prs", "seenComments", "mutedPRs", "dismissedPRs"],
+          (data) => {
+            renderPRs(data.prs, data.seenComments, data.mutedPRs, data.dismissedPRs);
+            renderDismissed(data.prs, data.dismissedPRs);
+          }
         );
       });
     });
@@ -100,6 +128,71 @@ function renderPRs(prs, seenComments, mutedPRs = {}) {
     });
 
     prList.appendChild(item);
+  }
+}
+
+function renderDismissed(prs, dismissedPRs = {}) {
+  const list = document.getElementById("dismissed-list");
+  const empty = document.getElementById("dismissed-empty-state");
+  list.innerHTML = "";
+
+  const dismissed = (prs || []).filter((pr) => {
+    const repoFullName = pr.repository_url.replace("https://api.github.com/repos/", "");
+    const prKey = `${repoFullName}#${pr.number}`;
+    return !!dismissedPRs[prKey];
+  });
+
+  if (dismissed.length === 0) {
+    empty.classList.remove("hidden");
+    return;
+  }
+
+  empty.classList.add("hidden");
+
+  for (const pr of dismissed) {
+    const repoFullName = pr.repository_url.replace("https://api.github.com/repos/", "");
+    const prKey = `${repoFullName}#${pr.number}`;
+
+    const item = document.createElement("div");
+    item.className = "pr-item";
+    item.innerHTML = `
+      <div class="pr-header">
+        <span class="pr-number">#${pr.number}</span>
+        <span class="pr-title">${escapeHtml(pr.title)}</span>
+        <div class="pr-actions">
+          <button class="restore-btn icon-btn" data-prkey="${escapeHtml(prKey)}" title="Restore PR">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M10 6A4 4 0 1 1 6 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <polyline points="6,1 8.5,1 8.5,3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="pr-meta">
+        <span class="pr-repo">${escapeHtml(repoFullName)}</span>
+        <span class="muted-label">dismissed</span>
+      </div>
+    `;
+
+    item.querySelector(".restore-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const key = e.currentTarget.dataset.prkey;
+      chrome.runtime.sendMessage({ type: "DISMISS_PR", prKey: key }, () => {
+        chrome.storage.local.get(
+          ["prs", "seenComments", "mutedPRs", "dismissedPRs"],
+          (data) => {
+            renderPRs(data.prs, data.seenComments, data.mutedPRs, data.dismissedPRs);
+            renderDismissed(data.prs, data.dismissedPRs);
+          }
+        );
+      });
+    });
+
+    item.addEventListener("click", () => {
+      chrome.tabs.create({ url: pr.html_url });
+    });
+
+    list.appendChild(item);
   }
 }
 
@@ -198,6 +291,17 @@ function setupTabs() {
       document.getElementById("tab-actions").classList.toggle("hidden", target !== "actions");
     });
   });
+
+  const prSubTabs = document.querySelectorAll(".pr-sub-tab");
+  prSubTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      prSubTabs.forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      const target = tab.dataset.subtab;
+      document.getElementById("subtab-active").classList.toggle("hidden", target !== "active");
+      document.getElementById("subtab-dismissed").classList.toggle("hidden", target !== "dismissed");
+    });
+  });
 }
 
 function loadMain(data) {
@@ -206,7 +310,8 @@ function loadMain(data) {
   statusUser.textContent = `@${data.username}`;
   statusTime.textContent = `updated ${timeAgo(data.lastPolled)}`;
   setNotifToggleUI(data.notificationsEnabled !== false);
-  renderPRs(data.prs, data.seenComments, data.mutedPRs);
+  renderPRs(data.prs, data.seenComments, data.mutedPRs, data.dismissedPRs);
+  renderDismissed(data.prs, data.dismissedPRs);
   renderComments(data.allComments);
   renderActions(data.actionRuns);
 }
@@ -219,7 +324,7 @@ function loadSetup() {
 setupTabs();
 
 chrome.storage.local.get(
-  ["token", "username", "prs", "lastPolled", "seenComments", "allComments", "actionRuns", "notificationsEnabled", "mutedPRs"],
+  ["token", "username", "prs", "lastPolled", "seenComments", "allComments", "actionRuns", "notificationsEnabled", "mutedPRs", "dismissedPRs"],
   (data) => {
     if (data.token && data.username) {
       loadMain(data);
@@ -237,7 +342,7 @@ btnSave.addEventListener("click", () => {
   chrome.storage.local.set({ token, username, seenComments: {} }, () => {
     chrome.runtime.sendMessage({ type: "POLL_NOW" }, () => {
       chrome.storage.local.get(
-        ["token", "username", "prs", "lastPolled", "seenComments", "allComments", "actionRuns", "notificationsEnabled", "mutedPRs"],
+        ["token", "username", "prs", "lastPolled", "seenComments", "allComments", "actionRuns", "notificationsEnabled", "mutedPRs", "dismissedPRs"],
         loadMain
       );
     });
@@ -254,7 +359,7 @@ btnRefresh.addEventListener("click", () => {
   btnRefresh.classList.add("spinning");
   chrome.runtime.sendMessage({ type: "POLL_NOW" }, () => {
     chrome.storage.local.get(
-      ["token", "username", "prs", "lastPolled", "seenComments", "allComments", "actionRuns", "notificationsEnabled", "mutedPRs"],
+      ["token", "username", "prs", "lastPolled", "seenComments", "allComments", "actionRuns", "notificationsEnabled", "mutedPRs", "dismissedPRs"],
       (data) => {
         btnRefresh.classList.remove("spinning");
         loadMain(data);

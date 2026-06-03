@@ -3,7 +3,7 @@ const GITHUB_API = "https://api.github.com";
 
 async function getSettings() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(["token", "username", "seenComments", "trackedRepos", "notificationsEnabled", "mutedPRs"], resolve);
+    chrome.storage.local.get(["token", "username", "seenComments", "trackedRepos", "notificationsEnabled", "mutedPRs", "dismissedPRs"], resolve);
   });
 }
 
@@ -62,7 +62,7 @@ async function getActionRuns(token, username) {
     repos.map(async (repo) => {
       try {
         const result = await fetchJSON(
-          `${GITHUB_API}/repos/${repo}/actions/runs?per_page=10`,
+          `${GITHUB_API}/repos/${repo}/actions/runs?actor=${username}&per_page=10`,
           token
         );
         for (const run of result.workflow_runs || []) {
@@ -125,7 +125,7 @@ function showNotification(id, title, message, iconUrl) {
 }
 
 async function pollPRs() {
-  const { token, username, seenComments = {}, seenRuns = {}, notificationsEnabled = true, mutedPRs = {} } = await getSettings();
+  const { token, username, seenComments = {}, seenRuns = {}, notificationsEnabled = true, mutedPRs = {}, dismissedPRs = {} } = await getSettings();
 
   if (!token || !username) {
     return;
@@ -222,6 +222,17 @@ async function pollPRs() {
     showNotification(notif.id, notif.title, notif.message);
   }
 
+  const openPRKeys = new Set(
+    prs.map((pr) => {
+      const repoFullName = pr.repository_url.replace(`${GITHUB_API}/repos/`, "");
+      return `${repoFullName}#${pr.number}`;
+    })
+  );
+  const prunedDismissed = Object.fromEntries(
+    Object.entries(dismissedPRs).filter(([key]) => openPRKeys.has(key))
+  );
+  chrome.storage.local.set({ dismissedPRs: prunedDismissed });
+
   chrome.storage.local.set({ lastPolled: new Date().toISOString(), prs, allComments, actionRuns });
 }
 
@@ -267,6 +278,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         mutedPRs[msg.prKey] = true;
       }
       chrome.storage.local.set({ mutedPRs }, () => sendResponse({ mutedPRs }));
+    });
+    return true;
+  }
+  if (msg.type === "DISMISS_PR") {
+    chrome.storage.local.get(["dismissedPRs"], (data) => {
+      const dismissedPRs = data.dismissedPRs || {};
+      if (dismissedPRs[msg.prKey]) {
+        delete dismissedPRs[msg.prKey];
+      } else {
+        dismissedPRs[msg.prKey] = true;
+      }
+      chrome.storage.local.set({ dismissedPRs }, () => sendResponse({ dismissedPRs }));
     });
     return true;
   }
