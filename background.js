@@ -3,7 +3,7 @@ const GITHUB_API = "https://api.github.com";
 
 async function getSettings() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(["token", "username", "seenComments", "trackedRepos"], resolve);
+    chrome.storage.local.get(["token", "username", "seenComments", "trackedRepos", "notificationsEnabled", "mutedPRs"], resolve);
   });
 }
 
@@ -21,19 +21,48 @@ async function fetchJSON(url, token) {
   return res.json();
 }
 
-async function getActionRuns(token, username) {
-  const data = await fetchJSON(
-    `${GITHUB_API}/search/repositories?q=involves:${username}&per_page=20`,
-    token
+async function getUserRepos(token) {
+  const [userRepos, orgs] = await Promise.all([
+    fetchJSON(`${GITHUB_API}/user/repos?affiliation=owner,collaborator,organization_member&per_page=100&sort=pushed`, token),
+    fetchJSON(`${GITHUB_API}/user/orgs`, token),
+  ]);
+
+  const repoSet = new Set(userRepos.map((r) => r.full_name));
+
+  await Promise.all(
+    orgs.map(async (org) => {
+      try {
+        const orgRepos = await fetchJSON(
+          `${GITHUB_API}/orgs/${org.login}/repos?per_page=100&sort=pushed`,
+          token
+        );
+        for (const r of orgRepos) {
+          repoSet.add(r.full_name);
+        }
+      } catch {
+        // no access to this org repos
+      }
+    })
   );
-  const repos = (data.items || []).map((r) => r.full_name);
+
+  return [...repoSet];
+}
+
+async function getActionRuns(token, username) {
+  let repos;
+  try {
+    repos = await getUserRepos(token);
+  } catch (err) {
+    console.error("Failed to fetch repos:", err.message);
+    return [];
+  }
 
   const allRuns = [];
   await Promise.all(
     repos.map(async (repo) => {
       try {
         const result = await fetchJSON(
-          `${GITHUB_API}/repos/${repo}/actions/runs?actor=${username}&per_page=15`,
+          `${GITHUB_API}/repos/${repo}/actions/runs?per_page=10`,
           token
         );
         for (const run of result.workflow_runs || []) {
@@ -49,6 +78,7 @@ async function getActionRuns(token, username) {
             htmlUrl: run.html_url,
             branch: run.head_branch,
             event: run.event,
+            actor: run.triggering_actor?.login || run.actor?.login || "",
           });
         }
       } catch {
@@ -57,7 +87,7 @@ async function getActionRuns(token, username) {
     })
   );
 
-  allRuns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  allRuns.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
   return allRuns.slice(0, 50);
 }
 
@@ -95,7 +125,7 @@ function showNotification(id, title, message, iconUrl) {
 }
 
 async function pollPRs() {
-  const { token, username, seenComments = {}, seenRuns = {} } = await getSettings();
+  const { token, username, seenComments = {}, seenRuns = {}, notificationsEnabled = true, mutedPRs = {} } = await getSettings();
 
   if (!token || !username) {
     return;
@@ -151,7 +181,7 @@ async function pollPRs() {
       });
 
       if (isNew) {
-        if (comment.user?.login !== username) {
+        if (comment.user?.login !== username && notificationsEnabled && !mutedPRs[prKey]) {
           newNotifications.push({
             id: `pr-comment-${commentId}`,
             title: `💬 ${comment.user?.login} on ${repoFullName}#${pr.number}`,
@@ -219,6 +249,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg.type === "CLEAR_SEEN") {
     chrome.storage.local.set({ seenComments: {} }, () => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === "TOGGLE_NOTIFICATIONS") {
+    chrome.storage.local.get(["notificationsEnabled"], (data) => {
+      const next = !(data.notificationsEnabled !== false);
+      chrome.storage.local.set({ notificationsEnabled: next }, () => sendResponse({ notificationsEnabled: next }));
+    });
+    return true;
+  }
+  if (msg.type === "TOGGLE_MUTE") {
+    chrome.storage.local.get(["mutedPRs"], (data) => {
+      const mutedPRs = data.mutedPRs || {};
+      if (mutedPRs[msg.prKey]) {
+        delete mutedPRs[msg.prKey];
+      } else {
+        mutedPRs[msg.prKey] = true;
+      }
+      chrome.storage.local.set({ mutedPRs }, () => sendResponse({ mutedPRs }));
+    });
     return true;
   }
 });

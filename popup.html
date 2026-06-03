@@ -26,6 +26,17 @@
           <polyline points="10,1 13,1 13,4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
+      <button id="btn-notif-toggle" class="icon-btn" title="Toggle notifications">
+        <svg id="notif-icon-on" width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1a4 4 0 0 1 4 4v3l1 1.5H2L3 8V5a4 4 0 0 1 4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M5.5 11.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <svg id="notif-icon-off" width="14" height="14" viewBox="0 0 14 14" fill="none" class="hidden">
+          <path d="M7 1a4 4 0 0 1 4 4v3l1 1.5H2L3 8V5a4 4 0 0 1 4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.35"/>
+          <path d="M5.5 11.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+          <line x1="2" y1="2" x2="12" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
     </header>
 
     <div id="setup-view" class="view hidden">

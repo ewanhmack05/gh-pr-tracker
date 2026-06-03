@@ -297,6 +297,30 @@ header {
   color: var(--orange);
 }
 
+.mute-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.pr-item:hover .mute-btn {
+  opacity: 1;
+}
+
+.mute-btn.muted {
+  opacity: 1;
+  color: var(--orange);
+  border-color: var(--orange);
+}
+
+.muted-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--orange);
+  opacity: 0.8;
+}
+
 /* Empty state */
 .empty-state {
   padding: 32px 16px;
@@ -458,3 +482,22 @@ header {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.run-updated {
+  opacity: 0.65;
+}
+
+.run-conclusion {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.run-conclusion.success { color: var(--green); }
+.run-conclusion.failure { color: var(--red); }
+.run-conclusion.in_progress { color: var(--orange); }
+.run-conclusion.queued,
+.run-conclusion.cancelled,
+.run-conclusion.skipped { color: var(--text-muted); }
