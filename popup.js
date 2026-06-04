@@ -15,6 +15,8 @@ const btnDisconnect = document.getElementById("btn-disconnect");
 const inputToken = document.getElementById("input-token");
 const inputUsername = document.getElementById("input-username");
 
+let currentSort = "latest";
+
 function setNotifToggleUI(enabled) {
   btnNotifToggle.title = enabled ? "Notifications on — click to disable" : "Notifications off — click to enable";
   notifIconOn.classList.toggle("hidden", !enabled);
@@ -45,14 +47,53 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function sortPRs(prs, sort) {
+  const sorted = [...prs];
+  if (sort === "latest") {
+    sorted.sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+  } else if (sort === "comments") {
+    sorted.sort((a, b) => {
+      const ca = a.comments + (a.pull_request?.review_comments || 0);
+      const cb = b.comments + (b.pull_request?.review_comments || 0);
+      return cb - ca;
+    });
+  } else if (sort === "repo") {
+    sorted.sort((a, b) => {
+      const ra = a.repository_url.replace("https://api.github.com/repos/", "");
+      const rb = b.repository_url.replace("https://api.github.com/repos/", "");
+      return ra.localeCompare(rb);
+    });
+  } else if (sort === "approved") {
+    const order = { approved: 0, pending: 1, changes_requested: 2 };
+    sorted.sort((a, b) => (order[a.reviewState] ?? 1) - (order[b.reviewState] ?? 1));
+  } else if (sort === "unapproved") {
+    const order = { changes_requested: 0, pending: 1, approved: 2 };
+    sorted.sort((a, b) => (order[a.reviewState] ?? 1) - (order[b.reviewState] ?? 1));
+  }
+  return sorted;
+}
+
+function reviewBadge(reviewState) {
+  if (reviewState === "approved") {
+    return `<span class="review-badge approved">✓ Approved</span>`;
+  }
+  if (reviewState === "changes_requested") {
+    return `<span class="review-badge changes">✗ Changes requested</span>`;
+  }
+  return `<span class="review-badge pending">· Pending review</span>`;
+}
+
 function renderPRs(prs, seenComments, mutedPRs = {}, dismissedPRs = {}) {
   prList.innerHTML = "";
 
-  const visiblePRs = (prs || []).filter((pr) => {
-    const repoFullName = pr.repository_url.replace("https://api.github.com/repos/", "");
-    const prKey = `${repoFullName}#${pr.number}`;
-    return !dismissedPRs[prKey];
-  });
+  const visiblePRs = sortPRs(
+    (prs || []).filter((pr) => {
+      const repoFullName = pr.repository_url.replace("https://api.github.com/repos/", "");
+      const prKey = `${repoFullName}#${pr.number}`;
+      return !dismissedPRs[prKey];
+    }),
+    currentSort
+  );
 
   if (visiblePRs.length === 0) {
     emptyState.classList.remove("hidden");
@@ -96,6 +137,7 @@ function renderPRs(prs, seenComments, mutedPRs = {}, dismissedPRs = {}) {
         </span>
         ${isMuted ? `<span class="muted-label">muted</span>` : ""}
       </div>
+      <div class="pr-review">${reviewBadge(pr.reviewState)}</div>
     `;
 
     item.querySelector(".mute-btn").addEventListener("click", (e) => {
@@ -301,6 +343,15 @@ function setupTabs() {
       document.getElementById("subtab-active").classList.toggle("hidden", target !== "active");
       document.getElementById("subtab-dismissed").classList.toggle("hidden", target !== "dismissed");
     });
+  });
+
+  const sortSelect = document.getElementById("pr-sort");
+  sortSelect.addEventListener("change", () => {
+    currentSort = sortSelect.value;
+    chrome.storage.local.get(
+      ["prs", "seenComments", "mutedPRs", "dismissedPRs"],
+      (data) => renderPRs(data.prs, data.seenComments, data.mutedPRs, data.dismissedPRs)
+    );
   });
 }
 

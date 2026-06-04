@@ -114,6 +114,33 @@ async function getCommentsForPR(token, repoFullName, prNumber) {
   return [...issueComments, ...reviewComments];
 }
 
+async function getReviewStateForPR(token, repoFullName, prNumber) {
+  try {
+    const reviews = await fetchJSON(
+      `${GITHUB_API}/repos/${repoFullName}/pulls/${prNumber}/reviews?per_page=100`,
+      token
+    );
+    // Walk reviews newest-first; the latest submitted state per reviewer wins
+    const latestPerReviewer = new Map();
+    for (const review of [...reviews].reverse()) {
+      if (review.state === "COMMENTED") { continue; }
+      if (!latestPerReviewer.has(review.user.login)) {
+        latestPerReviewer.set(review.user.login, review.state);
+      }
+    }
+    const states = [...latestPerReviewer.values()];
+    if (states.includes("APPROVED") && !states.includes("CHANGES_REQUESTED")) {
+      return "approved";
+    }
+    if (states.includes("CHANGES_REQUESTED")) {
+      return "changes_requested";
+    }
+    return "pending";
+  } catch {
+    return "pending";
+  }
+}
+
 function showNotification(id, title, message, iconUrl) {
   chrome.notifications.create(id, {
     type: "basic",
@@ -155,11 +182,16 @@ async function pollPRs() {
     const prKey = `${repoFullName}#${pr.number}`;
 
     let comments;
+    let reviewState;
     try {
-      comments = await getCommentsForPR(token, repoFullName, pr.number);
+      [comments, reviewState] = await Promise.all([
+        getCommentsForPR(token, repoFullName, pr.number),
+        getReviewStateForPR(token, repoFullName, pr.number),
+      ]);
     } catch {
       continue;
     }
+    pr.reviewState = reviewState;
 
     const previouslySeen = new Set(seenComments[prKey] || []);
 

@@ -77,6 +77,16 @@
           <button class="pr-sub-tab" data-subtab="dismissed">Dismissed</button>
         </div>
         <div id="subtab-active">
+          <div id="pr-sort-bar">
+            <label for="pr-sort">Sort</label>
+            <select id="pr-sort">
+              <option value="latest">Latest</option>
+              <option value="comments">Most comments</option>
+              <option value="repo">By repo</option>
+              <option value="approved">Approved first</option>
+              <option value="unapproved">Unapproved first</option>
+            </select>
+          </div>
           <div id="pr-list"></div>
           <div id="empty-state" class="empty-state hidden">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
