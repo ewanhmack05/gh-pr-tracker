@@ -28,13 +28,16 @@ Open the extension popup and enter your token and GitHub username, then click **
 
 ### PRs
 
-<!-- screenshot -->
+<img width="452" height="707" alt="image" src="https://github.com/user-attachments/assets/0d32d882-a8ba-40ad-8bdf-3da55f6b88e8" />
 
 Lists all open pull requests you are involved in. Each item shows:
 
 - PR number and title
 - Repository name and comment count
 - Review state badge — **Approved**, **Changes requested**, or **Pending review**
+
+<img width="445" height="118" alt="image" src="https://github.com/user-attachments/assets/b3e25425-c9cf-4cf8-bc43-637f932f5f43" />
+
 
 **Sorting** — use the dropdown above the list to sort by:
 
@@ -43,6 +46,8 @@ Lists all open pull requests you are involved in. Each item shows:
 - By repo
 - Approved first
 - Unapproved first
+
+<img width="445" height="373" alt="image" src="https://github.com/user-attachments/assets/99122644-dba6-40fe-b66b-6227c8391d63" />
 
 **Per-PR actions** (appear on hover):
 
@@ -53,11 +58,13 @@ Lists all open pull requests you are involved in. Each item shows:
 
 A sub-tab showing all PRs you have dismissed. Each entry has a restore button to bring it back to the active list. Dismissed entries are automatically cleaned up when a PR is merged or closed.
 
+<img width="452" height="251" alt="image" src="https://github.com/user-attachments/assets/b2c6f184-5e03-4d9b-b198-4da052fd872a" />
+
 ---
 
 ### Comments
 
-<!-- screenshot -->
+<img width="452" height="623" alt="image" src="https://github.com/user-attachments/assets/c3434db8-08d4-4907-a789-e6550d2fa459" />
 
 A unified feed of all comments across your tracked PRs, sorted newest first. Each entry shows the author avatar, username, timestamp, PR reference, and comment body. New (unseen) comments are highlighted with an orange left border. Clicking any entry opens it on GitHub.
 
@@ -65,7 +72,7 @@ A unified feed of all comments across your tracked PRs, sorted newest first. Eac
 
 ### Actions
 
-<!-- screenshot -->
+<img width="446" height="622" alt="image" src="https://github.com/user-attachments/assets/1f32da89-464f-4fb2-8d47-fe754e25b9cc" />
 
 Lists GitHub Actions runs triggered by you across all repos you own or collaborate on, sorted by most recently updated. Each entry shows:
 
