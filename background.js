@@ -193,6 +193,7 @@ async function pollPRs() {
     }
     pr.reviewState = reviewState;
 
+    const isFirstSeen = !seenComments[prKey];
     const previouslySeen = new Set(seenComments[prKey] || []);
 
     for (const comment of comments) {
@@ -209,11 +210,11 @@ async function pollPRs() {
         prNumber: pr.number,
         prTitle: pr.title,
         repo: repoFullName,
-        isNew,
+        isNew: isNew && !isFirstSeen,
       });
 
       if (isNew) {
-        if (comment.user?.login !== username && notificationsEnabled && !mutedPRs[prKey]) {
+        if (!isFirstSeen && comment.user?.login !== username && notificationsEnabled && !mutedPRs[prKey]) {
           newNotifications.push({
             id: `pr-comment-${commentId}`,
             title: `💬 ${comment.user?.login} on ${repoFullName}#${pr.number}`,
@@ -253,6 +254,8 @@ async function pollPRs() {
   for (const notif of newNotifications) {
     showNotification(notif.id, notif.title, notif.message);
   }
+  // seenComments already persisted above before notifications fire,
+  // so a reload mid-poll cannot re-fire the same notifications
 
   const openPRKeys = new Set(
     prs.map((pr) => {
